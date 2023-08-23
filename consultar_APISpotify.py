@@ -108,16 +108,22 @@ def carga_database(df_canciones,df_artistas,df,df_fechas):
 
 def main():
     load_dotenv() # carga las variables de entorno desde el archivo .env.
+
     spotify = configurar_keys()
+
     songs_data = []
     for i in range(iteracion):
         songs_data.append(get_spotify_data(spotify)) #tengo 3 listas de 50 canciones cada una
+
     canciones,artistas,fact_table,tiempo = obtener_datos(songs_data,spotify)
+
     df_canciones = pd.DataFrame(canciones)
     df_artistas = pd.DataFrame(artistas)
     df = pd.DataFrame(fact_table)
     df_fechas = pd.DataFrame(tiempo)
+
     df_canciones,df_artistas,df,df_fechas = eliminar_duplicados(df_canciones,df_artistas,df,df_fechas)
+
     print('artistas------------------------')
     print(df_artistas)
     print('canciones-----------------------')
@@ -126,6 +132,7 @@ def main():
     print(df_fechas)
     print('fact_table----------------------')
     print(df)
+    
     carga_database(df_canciones,df_artistas,df,df_fechas)
 
 main()
