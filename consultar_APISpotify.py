@@ -8,7 +8,7 @@ import datetime
 from sqlalchemy import create_engine,text
 import redshift_connector
 
-iteracion = 3 #variable para iterar la consultas a la api
+"""iteracion = 3 #variable para iterar la consultas a la api
 
 # Configuración de la API de Spotify
 def configurar_keys():
@@ -132,7 +132,7 @@ def main():
     print(df_fechas)
     print('fact_table----------------------')
     print(df)
-    
+
     carga_database(df_canciones,df_artistas,df,df_fechas)
 
 main()

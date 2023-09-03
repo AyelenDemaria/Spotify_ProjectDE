@@ -2,25 +2,13 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 from dotenv import load_dotenv
+import os
 import pandas as pd
-from datetime import datetime,timedelta
+import datetime
+from sqlalchemy import create_engine,text
 import redshift_connector
 
-
-from pathlib import Path
-import psycopg2
-from airflow import DAG
-from sqlalchemy import create_engine,text
-# Operadores
-from airflow.operators.python_operator import PythonOperator
-#from airflow.utils.dates import days_ago
-
-import sys
-import os
-#proyecto_de_path = os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), "Spotify_ProjectDE"))
-#sys.path.insert(0, proyecto_de_path)
-#from functions import consultar_APISpotify
-
+iteracion = 3 #variable para iterar la consultas a la api
 
 # Configuración de la API de Spotify
 def configurar_keys():
@@ -51,11 +39,10 @@ def obtener_datos(songs_data,spotify):
     fact_table = []
     artistas= []
     tiempo = []
-    fecha_hora_actual = datetime.now()
-    fecha_actual = fecha_hora_actual.date()
-    mes_actual = fecha_hora_actual.month
-    anio_actual = fecha_hora_actual.year
-    dia_actual = fecha_hora_actual.day
+    fecha_actual = datetime.date.today()
+    mes_actual = fecha_actual.month
+    anio_actual = fecha_actual.year
+    dia_actual = fecha_actual.day
     for j in songs_data:
         for song in j:
              id = song['id']
@@ -125,7 +112,7 @@ def main():
     spotify = configurar_keys()
 
     songs_data = []
-    for i in range(3):
+    for i in range(iteracion):
         songs_data.append(get_spotify_data(spotify)) #tengo 3 listas de 50 canciones cada una
 
     canciones,artistas,fact_table,tiempo = obtener_datos(songs_data,spotify)
@@ -137,34 +124,15 @@ def main():
 
     df_canciones,df_artistas,df,df_fechas = eliminar_duplicados(df_canciones,df_artistas,df,df_fechas)
 
+    print('artistas------------------------')
+    print(df_artistas)
+    print('canciones-----------------------')
+    print(df_canciones)
+    print('fechas----------------------')
+    print(df_fechas)
+    print('fact_table----------------------')
+    print(df)
+    
     carga_database(df_canciones,df_artistas,df,df_fechas)
 
-
-# argumentos por defecto para el DAG
-default_args = {
-    'owner': 'AyelenD',
-    'start_date': datetime(2023,8,22),
-    'retries':3,
-    'retry_delay': timedelta(minutes=3)
-}
-
-with DAG(
-    'Spotify_ETL',
-    description='Agrega data de Spotify de forma diaria',
-    schedule_interval='0 12 * * *',
-    catchup=False,
-    default_args=default_args) as dag:
-
-    def ejecutar_main(**kwargs):
-        main()
-
-    # Tareas
-    obtener_datos_APISpotify = PythonOperator(
-        task_id='ETL_Spotify',
-        python_callable=ejecutar_main,
-        #op_args=["{{ ds }} {{ execution_date.hour }}"],
-        provide_context=True,
-        dag=dag
-    )
-    # Definicion orden de tareas
-    obtener_datos_APISpotify
+main()
