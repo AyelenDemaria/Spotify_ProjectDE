@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime,timedelta
 import redshift_connector
-
+import smtplib
+from email.mime.text import MIMEText
 
 from pathlib import Path
 import psycopg2
 from airflow import DAG
+from airflow.models import variable
 from sqlalchemy import create_engine,text
 # Operadores
 from airflow.operators.python_operator import PythonOperator
@@ -97,9 +99,9 @@ def carga_database(df_canciones,df_artistas,df,df_fechas):
     url = 'postgresql://' + usuario + ':' + password + '@' + host + ':' + str(puerto) + '/' + nombre_base
     #conecto a la base de datos:
     conn = create_engine(url)
-    df.to_sql(name='facttable',con=conn,schema='ayedemaria_coderhouse',if_exists='append',index=False)
+    df.to_sql(name='facttable',con=conn,schema='ayedemaria_coderhouse',if_exists='replace',index=False)
     #el tiempo no se repite porque se corre una vez al día por lo tanto no es necesario eliminar repetidos:
-    df_fechas.to_sql(name='dimtiempo',con=conn,schema='ayedemaria_coderhouse',if_exists='append',index=False)
+    df_fechas.to_sql(name='dimtiempo',con=conn,schema='ayedemaria_coderhouse',if_exists='replace',index=False)
     #obtengo artistas y canciones ya guardados en db:
     result_artistas = pd.read_sql_query('SELECT cod_artista FROM ayedemaria_coderhouse.dimartistas',con = conn)
     result_canciones = pd.read_sql_query('SELECT cod_cancion FROM ayedemaria_coderhouse.dimcanciones',con = conn)
@@ -140,12 +142,23 @@ def main():
     carga_database(df_canciones,df_artistas,df,df_fechas)
 
 
+
+def send_email(subject,body,sender,recipients,password):
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ', '.join(recipients)
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+       smtp_server.login(sender, password)
+       smtp_server.sendmail(sender, recipients, msg.as_string())
+    print("Mensaje enviado!")
+
 # argumentos por defecto para el DAG
 default_args = {
     'owner': 'AyelenD',
     'start_date': datetime(2023,8,22),
     'retries':3,
-    'retry_delay': timedelta(minutes=3)
+    'retry_delay': timedelta(minutes=1)
 }
 
 with DAG(
@@ -158,6 +171,17 @@ with DAG(
     def ejecutar_main(**kwargs):
         main()
 
+    def enviar_mail(**kwargs):
+        subject = "ALERTA - Carga de datos de Spotify"
+        body = "Se ha cargando correctamente la información obtenida desde la API de spotify"
+        envia = os.getenv('SENDER')
+        sender = f'{envia}'
+        recipients = ["ayedemaria+1@gmail.com"]
+        password_envia = os.getenv('SENDER_PASSWORD')
+        password = f'{password_envia}'
+
+        send_email(subject,body,sender,recipients,password)
+
     # Tareas
     obtener_datos_APISpotify = PythonOperator(
         task_id='ETL_Spotify',
@@ -166,5 +190,10 @@ with DAG(
         provide_context=True,
         dag=dag
     )
+    enviar_mail = PythonOperator(
+        task_id='envio_mail',
+        python_callable=enviar_mail,
+        dag=dag
+    )
     # Definicion orden de tareas
-    obtener_datos_APISpotify
+    obtener_datos_APISpotify >> enviar_mail
