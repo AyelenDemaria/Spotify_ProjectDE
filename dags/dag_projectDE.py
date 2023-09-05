@@ -99,9 +99,9 @@ def carga_database(df_canciones,df_artistas,df,df_fechas):
     url = 'postgresql://' + usuario + ':' + password + '@' + host + ':' + str(puerto) + '/' + nombre_base
     #conecto a la base de datos:
     conn = create_engine(url)
-    df.to_sql(name='facttable',con=conn,schema='ayedemaria_coderhouse',if_exists='replace',index=False)
+    df.to_sql(name='facttable',con=conn,schema='ayedemaria_coderhouse',if_exists='append',index=False)
     #el tiempo no se repite porque se corre una vez al día por lo tanto no es necesario eliminar repetidos:
-    df_fechas.to_sql(name='dimtiempo',con=conn,schema='ayedemaria_coderhouse',if_exists='replace',index=False)
+    df_fechas.to_sql(name='dimtiempo',con=conn,schema='ayedemaria_coderhouse',if_exists='append',index=False)
     #obtengo artistas y canciones ya guardados en db:
     result_artistas = pd.read_sql_query('SELECT cod_artista FROM ayedemaria_coderhouse.dimartistas',con = conn)
     result_canciones = pd.read_sql_query('SELECT cod_cancion FROM ayedemaria_coderhouse.dimcanciones',con = conn)
